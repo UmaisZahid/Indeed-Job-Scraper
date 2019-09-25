@@ -20,3 +20,11 @@ The web scraper searches through 100 pages of indeed job listings with those par
 You can also then output this dataframe as an excel sheet for convenience. 
 
 _note_: Excel hyperlinks are limited to 255 characters. Many of the job URLs exceed this limit, as such they are formatted as strings in the excel output. 
+
+### Example Dataframe
+
+<img src="img/Pandas_Output.PNG">
+
+### Example Excel Output
+
+<img src="img/Example_Output.PNG">
