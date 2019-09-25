@@ -18,3 +18,5 @@ in addition to two non-standard paramaters:
 The web scraper searches through 100 pages of indeed job listings with those paramaters and returns a dataframe containing all the listings ordered by the "rating" metric based on the ordered list of keywords.
 
 You can also then output this dataframe as an excel sheet for convenience. 
+
+_note_: Excel hyperlinks are limited to 255 characters. Many of the job URLs exceed this limit, as such they are formatted as strings in the excel output. 
