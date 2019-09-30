@@ -54,6 +54,9 @@ external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
 # Create app
 app = dash.Dash(external_stylesheets=external_stylesheets)
 
+# assign server instance
+server = app.server
+
 app.layout = html.Div(children=[
     dcc.Markdown(heading),
     dbc.Progress(id="progress", value=0, striped=True, animated=True),
