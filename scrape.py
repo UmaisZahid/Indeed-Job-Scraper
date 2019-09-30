@@ -1,8 +1,8 @@
 from bs4 import BeautifulSoup
 import requests, json
 import pandas as pd
-import dash
-from dash.dependencies import Input, Output
+from multiprocessing import Pool
+from functools import partial
 
 
 class scrape():
@@ -10,9 +10,8 @@ class scrape():
     def __init__(self):
         self.output_frame = None
         self.loading = False
-        self.progress = 0
 
-    def create_url(self,parameters):
+    def create_url(parameters):
         # create base url for all further searches
         what = parameters['search_query'].replace(" ","+")
         where = parameters['location'].replace(" ","+")
@@ -21,7 +20,7 @@ class scrape():
         return base_url
 
 
-    def rate_job(self,j_title, j_soup, parameters):
+    def rate_job(j_title, j_soup, parameters):
         # rate job by keywords
         description = j_soup.find(id="jobDescriptionText").get_text()
         keywords = parameters['ordered_keywords']
@@ -56,7 +55,7 @@ class scrape():
         return description, rating, keywords_present, title_keywords_present
 
 
-    def get_job_details(self,job, parameters):
+    def get_job_details(job, parameters):
         # Get link and title
         job_url = job.find(class_='title').a['href']
 
@@ -73,51 +72,63 @@ class scrape():
         company = job_soup.find(class_="icl-u-lg-mr--sm").get_text()
 
         # Get description, rating and present keywords
-        description, rating, keywords_present, title_keywords_present = self.rate_job(title, job_soup, parameters)
+        description, rating, keywords_present, title_keywords_present = scrape.rate_job(title, job_soup, parameters)
 
         return title, company, job_url, description, rating, keywords_present, title_keywords_present
 
 
+    def parallel_scrape(parameters, url, page_num):
+
+        # get page
+        current_page = requests.get(url, timeout=5)
+        page_soup = BeautifulSoup(current_page.content, "html.parser")
+        page_output = []
+
+        # Parse every job in page
+        for job in page_soup.select(".jobsearch-SerpJobCard"):
+
+            title, company, url, description, rating, keywords_present, title_keywords_present = scrape.get_job_details(
+                job,
+                parameters)
+
+            page_output.append([rating, title, company, description, url, str(keywords_present),
+                    str(title_keywords_present), page_num])
+
+        return page_output
+
     def get_scrape(self,parameters):
 
         # Reset output and progress
-        output_frame = None
-        progress = 0
-        loading = True
+        self.loading = True
 
         # Create base url for all further searches
-        base_url = self.create_url(parameters)
+        base_url = scrape.create_url(parameters)
 
         # Output list and frame
         output = []
 
-        for x in range(0, parameters['pages']):
-            if (x == 0):
-                page_append = ""
-            else:
-                page_append = "&start=" + str(x * 10)
+        # Create pool of workers
+        pool = Pool(min(parameters['pages'],5))
 
-            # get page
-            current_page = requests.get(base_url + page_append, timeout=5)
-            page_soup = BeautifulSoup(current_page.content, "html.parser")
+        # Dirty list comprehension to create argument list for pool workers
+        pool_args = [(base_url + "&start=" + str(x * 10), x+1) if (x!=0) else (base_url,x+1)
+                     for x in range(0,parameters['pages'])]
 
-            for job in page_soup.select(".jobsearch-SerpJobCard"):
-                title, company, url, description, rating, keywords_present, title_keywords_present = self.get_job_details(job,
-                                                                                                                     parameters)
-                output.append([rating, title, company, description, url, str(keywords_present),
-                               str(title_keywords_present), x + 1])
+        # Get output of pool workers
+        output = pool.starmap(partial(scrape.parallel_scrape,parameters), pool_args)
+        output = [x for sublist in output for x in sublist]
 
-            progress = x/parameters['pages']
-
+        # Create dataframe from list of jobs
         df_output_frame = pd.DataFrame(
             output,
             columns=['Rating', 'Job Title', 'Company', 'Description', 'Job URL', 'Keywords Present', 'Title Keywords',
                      'Page Found']).sort_values(
             by='Rating', ascending=False).reset_index(drop=True)
 
+        # Sort df by rating
         df_output_frame['Rating'] = df_output_frame['Rating'].round(decimals=3)
-
-        loading = False
+        df_output_frame = df_output_frame.drop_duplicates(subset=['Rating','Job Title','Company'])
+        self.loading = False
 
         return df_output_frame
 

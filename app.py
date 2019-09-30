@@ -1,4 +1,5 @@
 from scrape import *
+import dash
 import dash_core_components as dcc
 import dash_html_components as html
 import dash_bootstrap_components as dbc
@@ -19,9 +20,7 @@ default_parameters = {
     }
 
 heading = '''
-# Indeed Job Scraper
-
-### How it works:
+### How to use me:
 
 You provide a set of standard input parameters: 
 - **Search Query**
@@ -38,7 +37,7 @@ The web scraper searches through all the indeed job listings with those paramate
 
 You can then download the full dataframe as an excel sheet for convenience. 
 
-**NOTE: This bot is quite slow. (~ 8 seconds per page) as it parses through each job listing sequentially.**
+**NOTE: Parsing through all job descriptions can take sometime. (up to 30 seconds). **
 
 '''
 
@@ -108,13 +107,21 @@ app.layout = html.Div(children=[
                 html.Button('Find Jobs', id='find_jobs',className="button button-primary")
             ], className="twelve columns"),
         ],className="row", style={'padding': 10}),
-        html.Div(id="results"),
+        dcc.Loading(
+            id="loading",
+            children=[
+                html.Div(id="results")
+            ],
+            type="circle",
+        ),
         dcc.Interval(id="interval", interval=1000, n_intervals=0),
+        html.Div(id='trigger',children=0, style=dict(display='none'))
     ])
 ])
 
 @app.callback(
-    [Output("results", "children")],
+    [Output("results", "children"),
+     Output('trigger','children')],
     [Input("find_jobs","n_clicks")],
     [State("search_query", "value"),
      State("location", "value"),
@@ -188,14 +195,34 @@ def update_results(n_clicks, query, location, range, title_keywords, ordered_key
         )
     ])
 
-    return [output_div]
+    return ([output_div],1)
 
-# @app.callback([Output("progress","value")],[Input("interval","n_intervals")])
-# def update_progress(n):
-#     if scraper.loading == False:
-#         raise PreventUpdate
-#     else:
-#         return scraper.progress
+
+@app.callback(
+    Output('find_jobs', 'disabled'),
+    [Input('find_jobs', 'n_clicks'),
+     Input('trigger', 'children')])
+def trigger_function(n_clicks, trigger):
+    print("Trigger triggered")
+    print(n_clicks)
+    context = dash.callback_context.triggered[0]['prop_id'].split('.')[0]
+    #context_value = dash.callback_context.triggered[0]['value']
+
+    # if the button triggered the function
+    if context == 'find_jobs':
+        # if the function is triggered at app load, this will not disable the button
+        # but if the function is triggered by clicking the button, this disables the button as expected
+        if n_clicks is None:
+            return False
+        elif n_clicks > 0:
+            return True
+        else:
+            return False
+    # if the element function completed and triggered the function
+    else:
+        # if the function is triggered at app load, this will not disable the button
+        # but if the function is triggered by the function finishing, this enables the button as expected
+        return False
 
 
 @app.server.route("/download_excel/")
@@ -216,4 +243,4 @@ def download_file():
 
 
 if __name__ == "__main__":
-    app.run_server(debug=False)
+    app.run_server(debug=True)
