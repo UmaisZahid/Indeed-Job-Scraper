@@ -8,6 +8,13 @@ from dash.dependencies import Input, Output, State
 from dash.exceptions import PreventUpdate
 from flask.helpers import send_file
 import io
+import signal
+import logging
+
+
+######################################################################################################################
+# Useful members #
+######################################################################################################################
 
 default_parameters = {
         'search_query':'Graduate Python',
@@ -44,6 +51,10 @@ You can then download the full dataframe as an excel sheet for convenience.
 # Hacky way of allowing downloading
 global_df = None
 
+######################################################################################################################
+# Creating app instance and designing layout #
+######################################################################################################################
+
 # create scrape instance
 scraper = scrape()
 
@@ -56,6 +67,7 @@ app = dash.Dash(external_stylesheets=external_stylesheets)
 # assign server instance
 server = app.server
 
+# Create layout
 app.layout = html.Div(children=[
     dcc.Markdown(heading),
     dbc.Progress(id="progress", value=0, striped=True, animated=True),
@@ -119,6 +131,12 @@ app.layout = html.Div(children=[
     ])
 ])
 
+
+######################################################################################################################
+# Callback Functions #
+######################################################################################################################
+
+# Callback to update results table upon button click, if button isn't disabled
 @app.callback(
     [Output("results", "children"),
      Output('trigger','children')],
@@ -133,6 +151,7 @@ app.layout = html.Div(children=[
 )
 def update_results(n_clicks, query, location, range, title_keywords, ordered_keywords, exclude_keywords, pages):
 
+    # Don't bother updating if the page just opened
     if n_clicks == 0 or n_clicks is None:
         raise PreventUpdate
 
@@ -152,16 +171,23 @@ def update_results(n_clicks, query, location, range, title_keywords, ordered_key
         'pages': pages
     }
 
+    # To store in log
+    print(parameters)
+
+    # Scrape based on parameters given
     df = scraper.get_scrape(parameters)
     global global_df
     global_df = df
 
+    # Column for data-table
     columns = [
         {"name": i, "id": i} for i in df.columns
     ]
 
+    # Convert data to list of dictionaries
     data = df.iloc[0:10,:].to_dict(orient='records')
 
+    # Results table div
     results_div = html.Div(className="row",children=[
                         html.Div(className="twelve columns",children=[
                             dash_table.DataTable(id="data_output",
@@ -180,7 +206,7 @@ def update_results(n_clicks, query, location, range, title_keywords, ordered_key
                                                  columns=columns
                                                  )])])
 
-
+    # Div to output to results parent
     output_div = html.Div(className="row",children=[
         dcc.Markdown('''
         
@@ -195,36 +221,37 @@ def update_results(n_clicks, query, location, range, title_keywords, ordered_key
         )
     ])
 
+    # Return output div as well as an output value to trigger div to start trigger callback
     return ([output_div],1)
 
 
+# Callback which checks if button has been triggered already or not. Disables it if so.
 @app.callback(
     Output('find_jobs', 'disabled'),
     [Input('find_jobs', 'n_clicks'),
      Input('trigger', 'children')])
 def trigger_function(n_clicks, trigger):
-    print("Trigger triggered")
-    print(n_clicks)
-    context = dash.callback_context.triggered[0]['prop_id'].split('.')[0]
-    #context_value = dash.callback_context.triggered[0]['value']
 
-    # if the button triggered the function
+    # Grab the id of the element that triggered the callback
+    context = dash.callback_context.triggered[0]['prop_id'].split('.')[0]
+
+    # If the button triggered the function
     if context == 'find_jobs':
-        # if the function is triggered at app load, this will not disable the button
-        # but if the function is triggered by clicking the button, this disables the button as expected
+
+        # Prevent false disabling at page load
         if n_clicks is None:
             return False
         elif n_clicks > 0:
             return True
         else:
             return False
-    # if the element function completed and triggered the function
     else:
-        # if the function is triggered at app load, this will not disable the button
-        # but if the function is triggered by the function finishing, this enables the button as expected
-        return False
+        return False    # If scrape completes and signals trigger again
 
 
+
+# Hacky way of allowing downloading of file.
+# Converts excel file to memory stream and then outputs that using Flask's send_file function.
 @app.server.route("/download_excel/")
 def download_file():
 
@@ -240,6 +267,18 @@ def download_file():
 
     return send_file(strIO, as_attachment=True,
                      attachment_filename="Excel Output.xlsx", cache_timeout=0)
+
+
+
+######################################################################################################################
+# Main and sigterm handling #
+######################################################################################################################
+
+# Handle termination signal if received by server
+def signal_handler(sig, frame):
+    logging.logger.info("Termination Signal Received")
+    print(f"Signum: {sig}")
+    print(f"Frame: \n {frame}")
 
 
 if __name__ == "__main__":
