@@ -24,6 +24,7 @@ Flask==1.1.1
 Flask-Compress==1.4.0
 fsspec==0.4.1
 future==0.17.1
+gunicorn==19.9.0
 idna==2.8
 isodate==0.6.0
 itsdangerous==1.1.0
