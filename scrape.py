@@ -11,6 +11,7 @@ class scrape():
         self.output_frame = None
         self.loading = False
 
+    # Create base Indeed URL for all further scraping
     def create_url(parameters):
         # create base url for all further searches
         what = parameters['search_query'].replace(" ","+")
@@ -19,7 +20,7 @@ class scrape():
         base_url = f"https://www.indeed.co.uk/jobs?q={what}&l={where}&radius={miles}"
         return base_url
 
-
+    # Rate job based on parameters given
     def rate_job(j_title, j_soup, parameters):
         # rate job by keywords
         description = j_soup.find(id="jobDescriptionText").get_text()
@@ -54,7 +55,7 @@ class scrape():
 
         return description, rating, keywords_present, title_keywords_present
 
-
+    # Obtain details of the job (company, title, description etc.)
     def get_job_details(job, parameters):
         # Get link and title
         job_url = job.find(class_='title').a['href']
@@ -76,7 +77,7 @@ class scrape():
 
         return title, company, job_url, description, rating, keywords_present, title_keywords_present
 
-
+    # Parallel version of old scraping routine. Run through MapPool using Multiprocessing library
     def parallel_scrape(parameters, url, page_num):
 
         # get page
@@ -96,6 +97,7 @@ class scrape():
 
         return page_output
 
+    # Primary function for obtaining scraped jobs
     def get_scrape(self,parameters):
 
         # Reset output and progress
@@ -132,6 +134,7 @@ class scrape():
 
         return df_output_frame
 
+    # For outputting to excel locally
     def output_excel(df):
         with pd.ExcelWriter('/downloadable/Excel Output.xlsx', options={'strings_to_urls': False}) as writer:
             df.to_excel(writer, index=False)
