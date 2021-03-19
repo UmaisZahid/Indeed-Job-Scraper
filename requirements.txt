@@ -17,7 +17,7 @@ dash-renderer==1.1.0
 dash-table==4.3.0
 dask==2.3.0
 dbfread==2.0.7
-Django==2.2.5
+Django==2.2.18
 django-pandas==0.6.1
 et-xmlfile==1.0.1
 Flask==1.1.1
