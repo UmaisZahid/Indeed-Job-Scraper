@@ -35,7 +35,7 @@ locket==0.2.0
 MarkupSafe==1.1.1
 mock==3.0.5
 numexpr==2.7.0
-numpy==1.17.0
+numpy==1.22.0
 openpyxl==2.6.2
 pandas==0.25.0
 parsedatetime==2.4
